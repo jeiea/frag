@@ -377,7 +377,7 @@ updateTime lasttime currentframe nextframe anim presentTime =
 
 -------------------------------------------------------------------------------
 -- renders the model
-drawModel :: (MD3Model,IORef(AnimState)) -> IO( )
+drawModel :: (MD3Model, IORef AnimState) -> IO ()
 drawModel (model,stateRef) = do
    texture Texture2D                    $= Enabled
    --texture Texture2D                  $= Disabled
@@ -445,7 +445,7 @@ drawObject animState obj = do
   {-lockArrays                         $= (Just (0, (numOfFaces obj)))
       drawElements Triangles  (numOfFaces obj) UnsignedInt (vertIndex obj)-}
 
-  drawRangeElements Triangles (0, numOfFaces obj)
+  drawRangeElements Triangles (0, numOfFaces obj `div` 3 + 1)
     (numOfFaces obj) UnsignedInt (vertIndex obj)
 
   {-lockArrays $= Nothing
@@ -471,26 +471,26 @@ convertToVertArray t cs ns arr ind limit
 
 readMD3Header :: Handle -> IO MD3Header
 readMD3Header handle = do
-   buf <- mallocBytes 108
-   hGetBuf handle buf 108
-   fID <- getString buf 4
-   ver <- peek (plusPtr (castPtr buf :: Ptr CInt) 4)
-   mfilename <- getString (plusPtr buf 8) 68
-   [i1,i2,i3,i4,i5,i6,i7,i8] <-  getInts (plusPtr buf 76) 8
-   free buf
-   return $ MD3Header {
-                        fileID    = fID,
-                        version   = ver,
-                        md3FileName = mfilename,
-                        numFrames   = i1,
-                        numTags   = i2,
-                        numMeshes   = i3,
-                        numMaxSkins = i4,
-                        headerSize  = i5,
-                        tagStart          = i6,
-                        tagEnd    = i7,
-                        fileSize          = i8
-                  }
+  buf <- mallocBytes 108
+  hGetBuf handle buf 108
+  fID <- getString buf 4
+  ver <- peek $ plusPtr (castPtr buf :: Ptr CInt) 4
+  mfilename <- getString (plusPtr buf 8) 68
+  [i1,i2,i3,i4,i5,i6,i7,i8] <- getInts (plusPtr buf 76) 8
+  free buf
+  return $ MD3Header {
+    fileID      = fID,
+    version     = ver,
+    md3FileName = mfilename,
+    numFrames   = i1,
+    numTags     = i2,
+    numMeshes   = i3,
+    numMaxSkins = i4,
+    headerSize  = i5,
+    tagStart    = i6,
+    tagEnd      = i7,
+    fileSize    = i8
+  }
 
 
 
@@ -736,48 +736,29 @@ readWeaponModel filePath shader = do
 
 readWeapon :: FilePath  -> FilePath -> IO MD3Model
 readWeapon filePath shader = withBinaryFile filePath $ \handle -> do
-   header    <- readMD3Header handle
-   weaponTex <- (readMD3Shader shader)
-   texObj    <- mapM getAndCreateTexture (fmap ("tga/models/weapons/"++) weaponTex)
-   readBones handle header
-   readTags handle header
-   hash1 <- HT.fromList []
-   objs    <- readMeshes handle header hash1
-   let objs2      = fmap attachTex (zip texObj objs)
-   let emptyList = listArray (0,0) []
-   aux     <- newIORef (Nothing)
-   aux2    <- newIORef (Nothing)
-   return MD3Model {
-                   numOfTags     = 0,
-                   modelObjects = objs2,
-                   links                 = [],
-                   auxFunc       = aux,
-                   auxFunc2      = aux2,
-                   tags          = emptyList
-   }
+  header    <- readMD3Header handle
+  weaponTex <- readMD3Shader shader
+  texObj    <- mapM getAndCreateTexture (fmap ("tga/models/weapons/"++) weaponTex)
+  readBones handle header
+  readTags handle header
+  hash1   <- HT.fromList []
+  objs    <- readMeshes handle header hash1
+  let objs2 = fmap attachTex (zip texObj objs)
+      emptyList = listArray (0,0) []
+  aux     <- newIORef (Nothing)
+  aux2    <- newIORef (Nothing)
+  return MD3Model {
+    numOfTags    = 0,
+    modelObjects = objs2,
+    links        = [],
+    auxFunc      = aux,
+    auxFunc2     = aux2,
+    tags         = emptyList
+  }
 
 -- attaches the texture to the weapon
-attachTex :: (Maybe TextureObject,MeshObject) -> MeshObject
-attachTex (texObj,object) =
-   MeshObject {
-         numOfVerts   = numOfVerts   object,
-         numOfFaces   = numOfFaces   object,
-         numTexVertex = numTexVertex object,
-         materialID   = texObj,
-         bHasTexture  = True,
-         objName      = objName    object,
-         verticesp    = verticesp  object,
-         normals      = normals    object,
-         texCoordsl   = texCoordsl object,
-         texCoords    = texCoords  object,
-         vertPtr      = vertPtr    object,
-         numIndices   = numIndices object,
-         vertIndex    = vertIndex  object,
-         indexBuf     = indexBuf   object,
-         texBuf       = texBuf     object,
-         vertBuf      = vertBuf    object
-   }
-
+attachTex :: (Maybe TextureObject, MeshObject) -> MeshObject
+attachTex (texObj, object) = object { materialID = texObj, bHasTexture = True }
 
 
 
@@ -794,23 +775,23 @@ readMeshes handle header hashTable= do
                  return meshObjects
 
 
-readMeshData ::
-   Handle -> Integer -> Int ->
-         (HT.BasicHashTable String (Maybe TextureObject)) -> IO [MeshObject]
+readMeshData
+  :: Handle -> Integer -> Int
+  -> HT.BasicHashTable String (Maybe TextureObject)
+  -> IO [MeshObject]
 readMeshData handle posn meshesLeft hashTable
-    | meshesLeft <= 0 = return []
-    | otherwise = do
-                header <- readMD3MeshHeader handle
-                readSkins handle header
-                faces <- readFaces handle posn header
-                texcoords <- readTexCoords handle posn header
-                vertices <- readVertices handle posn header
-                hSeek handle AbsoluteSeek (posn+(fromIntegral (meshSize header)))
-                object <- convertMesh header faces texcoords vertices hashTable
-                objects <-
-                   readMeshData handle
-                        (posn+(fromIntegral (meshSize header))) (meshesLeft-1) hashTable
-                return (object:objects)
+  | meshesLeft <= 0 = return []
+  | otherwise = do
+    header <- readMD3MeshHeader handle
+    readSkins handle header
+    faces <- readFaces handle posn header
+    texcoords <- readTexCoords handle posn header
+    vertices <- readVertices handle posn header
+    hSeek handle AbsoluteSeek (posn + fromIntegral (meshSize header))
+    object <- convertMesh header faces texcoords vertices hashTable
+    objects <- readMeshData handle
+      (posn + fromIntegral (meshSize header)) (meshesLeft-1) hashTable
+    return (object:objects)
 
 
 
@@ -820,65 +801,66 @@ readMeshData handle posn meshesLeft hashTable
 -- a meshobject
 
 
-convertMesh :: MD3MeshHeader ->
-   [MD3Face] -> [MD3TexCoord] -> [MD3Vertex] ->
-          (HT.BasicHashTable String (Maybe TextureObject)) -> IO MeshObject
+convertMesh
+  :: MD3MeshHeader -> [MD3Face] -> [MD3TexCoord] -> [MD3Vertex]
+  -> HT.BasicHashTable String (Maybe TextureObject)
+  -> IO MeshObject
 convertMesh header faceIndex texcoords vertices hashTable = do
-    let verts           = fmap vert vertices
-    let scaledVerts = fmap devideBy64 verts
-    let keyframes       = devideIntoKeyframes (numVertices  header) scaledVerts
+  let verts       = fmap vert vertices
+      scaledVerts = fmap devideBy64 verts
+      keyframes   = devideIntoKeyframes (numVertices  header) scaledVerts
 
-    imPTR <- mapM (Foreign.Marshal.Array.newArray) (fmap convertVert keyframes)
-    let facesArrayp = listArray (0,((length imPTR)-1)) imPTR
+  imPTR <- mapM (Foreign.Marshal.Array.newArray) (fmap convertVert keyframes)
+  let facesArrayp = listArray (0, length imPTR - 1) imPTR
 
-    uvs     <- convertTex faceIndex texcoords
-    uvptr   <- Foreign.Marshal.Array.newArray (convertTex2 texcoords)
-    indces  <- Foreign.Marshal.Array.newArray (convertInd faceIndex)
-    vPtr          <- mallocBytes ((length (head keyframes))*12)
+  uvs    <- convertTex faceIndex texcoords
+  uvptr  <- Foreign.Marshal.Array.newArray (convertTex2 texcoords)
+  indces <- Foreign.Marshal.Array.newArray (convertInd faceIndex)
+  vPtr   <- mallocBytes (length (head keyframes) * 12)
 
-    [a] <- genObjectNames 1
-    {-bindBuffer ArrayBuffer $= Just a
-         bufferData ArrayBuffer $=
-          (fromIntegral (3*((length (head keyframes))*3)*4),
-                 facesArrayp!0 , StaticDraw)
-         arrayPointer VertexArray $=
-           VertexArrayDescriptor 3 Float 0 nullPtr-}
+  [a] <- genObjectNames 1
+  {-bindBuffer ArrayBuffer $= Just a
+       bufferData ArrayBuffer $=
+        (fromIntegral (3*((length (head keyframes))*3)*4),
+               facesArrayp!0 , StaticDraw)
+       arrayPointer VertexArray $=
+         VertexArrayDescriptor 3 Float 0 nullPtr-}
 
-    [b] <- genObjectNames 1
-    {-bindBuffer ArrayBuffer $= Just b
-         bufferData ArrayBuffer $=
-            (fromIntegral (4*(length (convertTex2 texcoords))),
-                    uvptr, StaticDraw)
-         arrayPointer TextureCoordArray $=
-            VertexArrayDescriptor 2 Float 0 nullPtr-}
+  [b] <- genObjectNames 1
+  {-bindBuffer ArrayBuffer $= Just b
+       bufferData ArrayBuffer $=
+          (fromIntegral (4*(length (convertTex2 texcoords))),
+                  uvptr, StaticDraw)
+       arrayPointer TextureCoordArray $=
+          VertexArrayDescriptor 2 Float 0 nullPtr-}
 
-    [c] <- genObjectNames 1
-    {-bindBuffer ElementArrayBuffer $= Just c
-         bufferData ElementArrayBuffer $=
-            (fromIntegral ((fromIntegral (length (head faces)))*12),
-                   indices, StaticDraw)
-         arrayPointer TextureCoordArray $=
-            VertexArrayDescriptor 2 Float 0 nullPtr-}
+  [c] <- genObjectNames 1
+  {-bindBuffer ElementArrayBuffer $= Just c
+       bufferData ElementArrayBuffer $=
+          (fromIntegral ((fromIntegral (length (head faces)))*12),
+                 indices, StaticDraw)
+       arrayPointer TextureCoordArray $=
+          VertexArrayDescriptor 2 Float 0 nullPtr-}
 
-    tex <- HT.lookup hashTable (strName header)
-    return MeshObject {
-            numOfVerts    = (length (head keyframes))*3,
-            numOfFaces    = 3*(fromIntegral (numTriangles header)),
-            numTexVertex  = numVertices  header,
-            materialID    = fromJust tex,
-            bHasTexture   = False,
-            objName        = strName header,
-            verticesp      = facesArrayp,
-            normals        = [],
-            texCoords      = uvptr,
-            texCoordsl    = uvs,
-            vertPtr        = vPtr,
-            numIndices    = fromIntegral  ((numTriangles header)*3),
-            vertIndex      = indces,
-            indexBuf = c,
-            texBuf = b,
-            vertBuf = a
-        }
+  tex <- HT.lookup hashTable (strName header)
+  return $ MeshObject {
+    numOfVerts   = length (head keyframes) * 3,
+    numOfFaces   = 3 * fromIntegral (numTriangles header),
+    numTexVertex = numVertices  header,
+    materialID   = fromJust tex,
+    bHasTexture  = False,
+    objName      = strName header,
+    verticesp    = facesArrayp,
+    normals      = [],
+    texCoords    = uvptr,
+    texCoordsl   = uvs,
+    vertPtr      = vPtr,
+    numIndices   = fromIntegral (numTriangles header * 3),
+    vertIndex    = indces,
+    indexBuf     = c,
+    texBuf       = b,
+    vertBuf      = a
+  }
 
 
 convertInd :: [(Int,Int,Int)] -> [CInt]
@@ -1022,26 +1004,25 @@ readSkin buf = do
 
 readMD3MeshHeader :: Handle -> IO MD3MeshHeader
 readMD3MeshHeader handle = do
-   buf <- mallocBytes 108
-   hGetBuf handle buf 108
-   mID <- getString buf 4
-   meshName <- getString (plusPtr buf 4) 68
-   [i1,i2,i3,i4,i5,i6,i7,i8,i9] <- getInts (plusPtr buf 72) 9
-   free buf
-   return $
-         MD3MeshHeader {
-            meshID         = mID,
-            strName        = meshName,
-            numMeshFrames = i1,
-            numSkins       = i2,
-            numVertices   = i3,
-            numTriangles  = i4,
-            triStart       = i5,
-            meshHeaderSize= i6,
-            uvStart        = i7,
-            vertexStart   = i8,
-            meshSize       = i9
-        }
+  buf <- mallocBytes 108
+  hGetBuf handle buf 108
+  mID <- getString buf 4
+  meshName <- getString (plusPtr buf 4) 68
+  [i1,i2,i3,i4,i5,i6,i7,i8,i9] <- getInts (plusPtr buf 72) 9
+  free buf
+  return $ MD3MeshHeader {
+    meshID         = mID,
+    strName        = meshName,
+    numMeshFrames  = i1,
+    numSkins       = i2,
+    numVertices    = i3,
+    numTriangles   = i4,
+    triStart       = i5,
+    meshHeaderSize = i6,
+    uvStart        = i7,
+    vertexStart    = i8,
+    meshSize       = i9
+  }
 
 
 
@@ -1183,10 +1164,10 @@ readLines handle = do
 withBinaryFile :: FilePath -> (Handle -> IO a) -> IO a
 withBinaryFile filePath = bracket (openBinaryFile filePath ReadMode) hClose
 
-toInts :: (Integral a)=>[a] -> [Int]
+toInts :: Integral a => [a] -> [Int]
 toInts a = fmap fromIntegral a
 
-toFloats :: (Real a) => [a] -> [Float]
+toFloats :: Real a => [a] -> [Float]
 toFloats a = fmap realToFrac a
 
 getInts :: Ptr a -> Int -> IO [Int]
