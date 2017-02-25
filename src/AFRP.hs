@@ -260,7 +260,7 @@ import Data.IORef
 import Control.Arrow
 import Control.Category
 import Prelude hiding (id,(.))
-import qualified Prelude 
+import qualified Prelude
 import AFRPDiagnostics
 import AFRPMiscellany (( # ), dup, swap)
 import AFRPEvent
@@ -363,7 +363,7 @@ freezeCol sfs dt = fmap (flip freeze dt) sfs
 
 instance Category SF where
     g . f  = f `compPrim` g
---    id  = Prelude.id
+    -- id  = Prelude.id
 
 instance Arrow SF where
     arr  = arrPrim
@@ -805,9 +805,8 @@ takeEvents (n + 1) = switch (never &&& identity) (takeEvents' n)
 -- Suppress first n events.
 -- Here dSwitch or switch does not really matter.
 dropEvents :: Int -> SF (Event a) (Event a)
-dropEvents 0        = identity
-dropEvents (n + 1) = dSwitch (never &&& identity)
-                                            (const (NoEvent >-- dropEvents n))
+dropEvents 0 = identity
+dropEvents n = dSwitch (never &&& identity) (const (NoEvent >-- dropEvents (n - 1)))
 
 
 ------------------------------------------------------------------------------
@@ -1456,21 +1455,19 @@ reactInit int actuate (SF {sfTF = tf0}) =
    return r
 
 -- process a single input sample:
-react :: ReactHandle a b
-         -> (DTime,Maybe a)
-         -> IO Bool
-react rh (dt,ma') =
-  do
-   rs@(ReactState {rsActuate = actuate,
-                           rsSF = sf,
-                        rsA = a,
-                        rsB = _ }) <- readIORef rh
-   let
-    a' = maybe a id ma'
-    (sf',b') = (sfTF' sf) dt a'
-   writeIORef rh (rs {rsSF = sf',rsA = a',rsB = b'})
-   done <- actuate rh True b'
-   return done
+react :: ReactHandle a b -> (DTime, Maybe a) -> IO Bool
+react rh (dt,ma') = do
+  rs@ReactState
+    { rsActuate = actuate
+    , rsSF = sf
+    , rsA = a
+    , rsB = _
+    } <- readIORef rh
+  let a' = maybe a id ma'
+      (sf',b') = (sfTF' sf) dt a'
+  writeIORef rh (rs {rsSF = sf',rsA = a',rsB = b'})
+  done <- actuate rh True b'
+  return done
 
 
 ------------------------------------------------------------------------------

@@ -40,7 +40,7 @@ import AFRPForceable
 -- result really would be a 2d vector), the only thing causing trouble is the
 -- use of atan2 in vector2Theta. Maybe atan2 can be generalized?
 
-data RealFloat a => Vector2 a = Vector2 !a !a deriving (Eq,Show)
+data Vector2 a = Vector2 !a !a deriving (Eq,Show)
 
 vector2 :: RealFloat a => a -> a -> Vector2 a
 vector2 x y = Vector2 x y

@@ -30,7 +30,7 @@ import AFRPForceable
 -- 3D point, constructors and selectors.
 ------------------------------------------------------------------------------
 
-data RealFloat a => Point3 a = Point3 !a !a !a deriving Eq
+data Point3 a = Point3 !a !a !a deriving Eq
 
 point3X :: RealFloat a => Point3 a -> a
 point3X (Point3 x _ _) = x

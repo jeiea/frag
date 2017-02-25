@@ -1,4 +1,5 @@
 {-# LANGUAGE BangPatterns #-}
+{-# LANGUAGE DoAndIfThenElse #-}
 
 {- MD3.hs; Mun Hon Cheong (mhch295@cse.unsw.edu.au) 2005
 
@@ -388,6 +389,7 @@ drawModel (model,stateRef) = do
    mapM (drawObject animState) (modelObjects model)
    let currentTag = (tags model)!(currentFrame animState)
    let nextTag    = (tags model)!(nextFrame animState)
+   return ()
    aux  <- readIORef (auxFunc model)
    aux2 <- readIORef (auxFunc2 model)
    case aux2 of
@@ -418,42 +420,38 @@ recurseDraw t func ((model,state):mss)
 -- draws a mesh object with vertex arrays
 drawObject :: AnimState -> MeshObject -> IO ()
 drawObject animState obj = do
-   let curindex = (currentFrame animState)
-   let nextIndex =        (nextFrame animState)
-   case (curindex /= nextIndex) of
-          True -> do
-                convertToVertArray
-                   (currentTime animState)
-                          ((verticesp obj)!curindex)
-                                 ((verticesp obj)!nextIndex)
-                                         (vertPtr obj) 0 (numOfVerts obj)
-                arrayPointer VertexArray $=
-                   VertexArrayDescriptor 3 Float 0 (vertPtr obj)
-          _       -> do
-                arrayPointer VertexArray $=
-                   VertexArrayDescriptor 3 Float 0 ((verticesp obj)!curindex)
+  let curindex  = currentFrame animState
+      nextIndex = nextFrame animState
+  if curindex /= nextIndex then do
+    convertToVertArray (currentTime animState) (verticesp obj ! curindex)
+     (verticesp obj ! nextIndex) (vertPtr obj) 0 (numOfVerts obj)
+    arrayPointer VertexArray $=
+      VertexArrayDescriptor 3 Float 0 (vertPtr obj)
+  else do
+    arrayPointer VertexArray $=
+      VertexArrayDescriptor 3 Float 0 (verticesp obj ! curindex)
 
-   {-clientState VertexArray            $= Enabled
-        lockArrays                              $= (Just (0, (numOfFaces obj)))-}
+  {-clientState VertexArray            $= Enabled
+      lockArrays                              $= (Just (0, (numOfFaces obj)))-}
 
-   arrayPointer TextureCoordArray       $=
-         VertexArrayDescriptor 2 Float 0 (texCoords obj)
+  arrayPointer TextureCoordArray       $=
+       VertexArrayDescriptor 2 Float 0 (texCoords obj)
 
-   {-clientState TextureCoordArray $= Enabled
-        texture Texture2D                       $= Enabled-}
+  {-clientState TextureCoordArray $= Enabled
+      texture Texture2D                       $= Enabled-}
 
-   textureBinding Texture2D             $= (materialID obj)
+  textureBinding Texture2D             $= (materialID obj)
 
-   {-lockArrays                         $= (Just (0, (numOfFaces obj)))
-        drawElements Triangles  (numOfFaces obj) UnsignedInt (vertIndex obj)-}
+  {-lockArrays                         $= (Just (0, (numOfFaces obj)))
+      drawElements Triangles  (numOfFaces obj) UnsignedInt (vertIndex obj)-}
 
-   drawRangeElements Triangles (0,(numOfFaces obj))
-         (numOfFaces obj) UnsignedInt (vertIndex obj)
+  drawRangeElements Triangles (0, numOfFaces obj)
+    (numOfFaces obj) UnsignedInt (vertIndex obj)
 
-   {-lockArrays $= Nothing
-        clientState VertexArray $= Disabled
-        clientState TextureCoordArray $= Disabled
-        texture Texture2D $= Disabled-}
+  {-lockArrays $= Nothing
+      clientState VertexArray $= Disabled
+      clientState TextureCoordArray $= Disabled
+      texture Texture2D $= Disabled-}
 
 
 convertToVertArray ::
@@ -762,22 +760,22 @@ readWeapon filePath shader = withBinaryFile filePath $ \handle -> do
 attachTex :: (Maybe TextureObject,MeshObject) -> MeshObject
 attachTex (texObj,object) =
    MeshObject {
-         numOfVerts     = numOfVerts    object,
-         numOfFaces     = numOfFaces    object,
-         numTexVertex   = numTexVertex object,
-         materialID     = texObj,
-         bHasTexture    = True,
-         objName                = objName    object,
-         verticesp      = verticesp  object,
-         normals                = normals    object,
-         texCoordsl     = texCoordsl object,
-         texCoords      = texCoords  object,
-         vertPtr                = vertPtr    object,
-         numIndices     = numIndices object,
-         vertIndex      = vertIndex  object,
-         indexBuf       = indexBuf   object,
-         texBuf         = texBuf           object,
-         vertBuf                = vertBuf    object
+         numOfVerts   = numOfVerts   object,
+         numOfFaces   = numOfFaces   object,
+         numTexVertex = numTexVertex object,
+         materialID   = texObj,
+         bHasTexture  = True,
+         objName      = objName    object,
+         verticesp    = verticesp  object,
+         normals      = normals    object,
+         texCoordsl   = texCoordsl object,
+         texCoords    = texCoords  object,
+         vertPtr      = vertPtr    object,
+         numIndices   = numIndices object,
+         vertIndex    = vertIndex  object,
+         indexBuf     = indexBuf   object,
+         texBuf       = texBuf     object,
+         vertBuf      = vertBuf    object
    }
 
 

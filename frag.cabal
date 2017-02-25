@@ -50,7 +50,7 @@ data-files:          README,
      tga/textures/gothic_floor/q1metal7_99.tga
      tga/textures/gothic_floor/largerblock3b3.tga,
      tga/textures/gothic_floor/largerblock3b3dim.tga
-     tga/textures/e7/e7brickfloor01.tga, 
+     tga/textures/e7/e7brickfloor01.tga,
      tga/textures/e7/e7bmtrim.tga
      tga/textures/e7/e7bricks01.tga,
      tga/textures/e7/e7sbrickfloor.tga
@@ -81,12 +81,56 @@ data-files:          README,
      tga/textures/gothic_block/blocks18d.tga,
      tga/textures/gothic_block/blocks18b.tga
 
-Executable frag
-   Main-is:             Main.hs
-   Build-Depends:       base==4.*, GLUT, OpenGL>=2.0, array, deepseq, hashtables, random
-   Hs-source-dirs:      src
-   Ghc-options:         -O2 -funbox-strict-fields -fvia-C -optc-O2
-   Extensions:          BangPatterns,
+executable frag
+   main-is:             Main.hs
+   build-depends:       base==4.*
+                      , GLUT
+                      , OpenGL >= 2.0
+                      , array
+                      , deepseq
+                      , hashtables
+                      , random
+   hs-source-dirs:      src
+   other-modules:       AFRP
+                      , AFRPAffineSpace
+                      , AFRPDiagnostics
+                      , AFRPEvent
+                      , AFRPForceable
+                      , AFRPGeometry
+                      , AFRPInternals
+                      , AFRPMiscellany
+                      , AFRPPoint2
+                      , AFRPPoint3
+                      , AFRPUtilities
+                      , AFRPVector2
+                      , AFRPVector3
+                      , AFRPVectorSpace
+                      , BSP
+                      , BitSet
+                      , Camera
+                      , Collision
+                      , Command
+                      , Curves
+                      , Frustum
+                      , Game
+                      , HGL
+                      , IdentityList
+                      , MD3
+                      , MapCfg
+                      , Matrix
+                      , Object
+                      , ObjectBehavior
+                      , Parser
+                      , PhysicalDimensions
+                      , Quaternion
+                      , Raybox
+                      , Render
+                      , TGA
+                      , TextureFonts
+                      , Textures
+                      , Visibility
+   ghc-options:         -O2 -funbox-strict-fields
+   extensions:          BangPatterns,
                         FunctionalDependencies,
                         FlexibleInstances,
                         MultiParamTypeClasses,

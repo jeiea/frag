@@ -1,3 +1,4 @@
+{-# LANGUAGE DoAndIfThenElse #-}
 {- Main.hs; Mun Hon Cheong (mhch295@cse.unsw.edu.au) 2005
 
 Main module
@@ -40,9 +41,9 @@ clkRes = 1000
 
 data Input
   = KBMInput  { key :: Key,
-                         keyState :: KeyState,
-                         modifiers :: Modifiers,
-                         pos :: Position}
+                keyState :: KeyState,
+                modifiers :: Modifiers,
+                pos :: Position }
   | MouseMove { pos :: Position }
  deriving Show
 
@@ -152,13 +153,13 @@ createAWindow windowName level = do
 
 
    --set up the callbacks
-   displayCallback              $= display
+   displayCallback       $= display
    keyboardMouseCallback $= Just (keyboardMouse newInput newMouseInput lck)
-   motionCallback               $= Just (dragMotion    newMouseInput)
+   motionCallback        $= Just (dragMotion    newMouseInput)
    passiveMotionCallback $= Just (mouseMotion   newMouseInput)
-   idleCallback         $=
-        Just (idle lasttime (newInput,newMouseInput)
-           hasReact (tex,base) inpState rh)
+   idleCallback          $=
+      Just (idle lasttime (newInput,newMouseInput)
+        hasReact (tex,base) inpState rh)
 
    where getAnims (x,y) = do
             us <- readIORef (upperState y)
@@ -215,41 +216,40 @@ render gd oos = do
   _ <- readIORef (hasReacted gd)
 
   --case (((realToFrac (time - lastTime2))/1000) <= (1/60)) of
-  case (True) of
-        True -> do
-                    -- initial setup
-                    clear [ ColorBuffer, DepthBuffer ]
-                    loadIdentity
+  case True of
+    True -> do
+      -- initial setup
+      clear [ ColorBuffer, DepthBuffer ]
+      loadIdentity
 
-                    --find the camera and set our view
-                    let playerState = findCam oos
-                    case (cood playerState) of
-                         [] -> return ()
-                         _ -> print (getPos (cood playerState))
-                    let cam = setCam $ playerState
-                    writeIORef (camera gd) cam
-                    cameraLook cam
+      --find the camera and set our view
+      let playerState = findCam oos
+      when (not . null $ cood playerState)
+           (print . getPos $ cood playerState)
+      let cam = setCam $ playerState
+      writeIORef (camera gd) cam
+      cameraLook cam
 
-                    --render the map
-                    renderBSP (gamemap gd) (cpos cam)
+      --render the map
+      renderBSP (gamemap gd) (cpos cam)
 
-                    --render the objects
-                    mp <- readIORef (gamemap gd)
-                    frust <- getFrustum
-                    mapM_ (renderObjects (camera gd) (models gd) frust mp) oos
+      -- --render the objects
+      mp <- readIORef (gamemap gd)
+      frust <- getFrustum
+      mapM_ (renderObjects (camera gd) (models gd) frust mp) oos
 
-                    --render the gun
-                    renderGun cam (models gd)
+      --render the gun
+      renderGun cam (models gd)
 
-                    --set up orthographics mode so we can draw the fonts
-                    renderHud gd playerState (length oos) tme
+      --set up orthographics mode so we can draw the fonts
+      renderHud gd playerState (length oos) tme
 
-                    writeIORef (lastDrawTime2 gd) tme
-                    writeIORef (hasReacted gd) False
-                    swapBuffers
-        _       -> do
-                    writeIORef (lastDrawTime2 gd) tme
-                    return()
+      writeIORef (lastDrawTime2 gd) tme
+      writeIORef (hasReacted gd) False
+      swapBuffers
+    _ -> do
+      writeIORef (lastDrawTime2 gd) tme
+      return()
 
 
 getPos :: [(Double,Double,Double)] -> [(Int,Int,Int)]
@@ -315,21 +315,23 @@ dragMotion newInput newCursorPos = do
          _          -> writeIORef newInput (Just MouseMove {pos=newCursorPos})
 
 
-idle :: IORef(Int) -> (IORef(OGLInput),IORef(OGLInput)) ->IORef(Bool) ->
-  (Maybe TextureObject,DisplayList) -> (IORef(Bool)) ->
-        ReactHandle (WinInput,WinInput) (Event (), ([Object.ObsObjState])) -> IO()
+idle :: IORef Int
+     -> (IORef OGLInput, IORef OGLInput)
+     -> IORef Bool
+     -> (Maybe TextureObject, DisplayList)
+     -> IORef Bool
+     -> ReactHandle (WinInput, WinInput) (Event (), [Object.ObsObjState])
+     -> IO ()
 idle lasttime newInput hasreacted _ inputState rh = do
-   lTime <- readIORef lasttime
-   currenttime <- get elapsedTime
-   case (currenttime - lTime >= 16) of
-         True -> do
-            (dt, input) <-
-                  getWinInput (lasttime,newInput) inputState True currenttime
-            react rh (dt,input)
-            writeIORef hasreacted True
-            writeIORef lasttime currenttime
-            return ()
-         _ -> return ()
+  lTime <- readIORef lasttime
+  currenttime <- get elapsedTime
+  if currenttime - lTime >= 16 then do
+    (dt, input) <- getWinInput (lasttime,newInput) inputState True currenttime
+    react rh (dt, input)
+    writeIORef hasreacted True
+    writeIORef lasttime currenttime
+    return ()
+  else return ()
 
 
 

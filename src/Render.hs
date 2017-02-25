@@ -1,4 +1,5 @@
 {-# LANGUAGE BangPatterns #-}
+{-# LANGUAGE DoAndIfThenElse #-}
 
 module Render (
     renderObjects,
@@ -117,43 +118,41 @@ printLife font life
 renderObjects :: IORef(Camera) -> HT.BasicHashTable String Model ->
    Frustum -> BSPMap  -> ObsObjState -> IO()
 renderObjects camRef mdels frust mp oos
-   | isRay oos        = renderRay oos
-   | isProjectile oos = renderProjectile oos
-   | isAICube oos     = renderEnemy camRef mdels frust mp oos
-   | otherwise        = return ()
+  | isRay oos        = renderRay oos
+  | isProjectile oos = renderProjectile oos
+  | isAICube oos     = renderEnemy camRef mdels frust mp oos
+  | otherwise        = return ()
 
 
 renderGun :: Camera -> HT.BasicHashTable String Model -> IO()
 renderGun cam mdels = do
-   Just weapon <- HT.lookup mdels "railgun"
-   let (x,y,z)    = cpos cam
-   let (vx,vy,vz) = viewPos cam
-   unsafePreservingMatrix $ do
-          --clear the depth buffer so the gun will appear
-          --on top of the graphics in the scene
-          clear [DepthBuffer ]
+  Just weapon <- HT.lookup mdels "railgun"
+  let (x,y,z)    = cpos cam
+  let (vx,vy,vz) = viewPos cam
+  unsafePreservingMatrix $ do
+    --clear the depth buffer so the gun will appear
+    --on top of the graphics in the scene
+    clear [DepthBuffer]
 
-          --translate and rotate the gun so it is aligned with players view vector
-          translate (Vector3 x (y+30) (z :: Double))
-          let angle2 =
-                    acos $ dotProd (normalise $ vectorSub (vx,0,vz) (x,0,z)) (1,0,0)
-          case (vz > z ) of
-                False -> rotate ((angle2*180/pi) :: GLdouble) (Vector3 0 1 0)
-                True  -> rotate ((360 - (angle2*180/pi)) :: GLdouble) (Vector3 0 1 0)
-          let angle1 =
-                    acos $ dotProd (normalise $ vectorSub (vx,vy,vz) (x,y,z)) (0,1,0)
-          rotate (90-(angle1*180/pi) :: GLdouble) (Vector3 0 0 1)
-          rotate (-90 :: Double) (Vector3 1 0 0)
-          translate (Vector3 (4.8) (-9.5) ((-20) :: Double))
-          scale 2 2 (2 :: GLfloat)
+    --translate and rotate the gun so it is aligned with players view vector
+    translate (Vector3 x (y+30) (z :: Double))
+    let angle2 = acos $ dotProd (normalise $ vectorSub (vx,0,vz) (x,0,z)) (1,0,0)
+    if vz > z
+    then rotate ((360 - (angle2 * 180 / pi)) :: GLdouble) (Vector3 0 1 0)
+    else rotate (angle2 * 180 / pi :: GLdouble) (Vector3 0 1 0)
+    let angle1 = acos $ dotProd (normalise $ vectorSub (vx,vy,vz) (x,y,z)) (0,1,0)
+    rotate (90 - (angle1 * 180 / pi) :: GLdouble) (Vector3 0 0 1)
+    rotate (-90 :: Double) (Vector3 1 0 0)
+    translate (Vector3 (4.8) (-9.5) ((-20) :: Double))
+    scale 2 2 (2 :: GLfloat)
 
-          --setup the animation state and drw the model
-          writeIORef (auxFunc2 (modelRef weapon)) Nothing
-          drawModel (modelRef weapon,lowerState weapon)
-   depthFunc              $= Just Always
+    --setup the animation state and drw the model
+    writeIORef (auxFunc2 (modelRef weapon)) Nothing
+    drawModel (modelRef weapon, lowerState weapon)
+  depthFunc $= Just Always
 
 
-renderRay :: ObsObjState -> IO()
+renderRay :: ObsObjState -> IO ()
 renderRay (OOSRay {rayStart = (x1,y1,z1),
                             rayEnd   = (x2,y2,z2),
                             clipped  = cl}) = do

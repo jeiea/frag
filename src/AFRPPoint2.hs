@@ -30,7 +30,7 @@ import AFRPForceable
 -- 2D point, constructors and selectors.
 ------------------------------------------------------------------------------
 
-data RealFloat a => Point2 a = Point2 !a !a deriving (Eq, Show)
+data Point2 a = Point2 !a !a deriving (Eq, Show)
 
 point2X :: RealFloat a => Point2 a -> a
 point2X (Point2 x _) = x
